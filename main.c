@@ -8,6 +8,11 @@
 #include <time.h>
 #include <sys/types.h>
 #include <string.h>
+
+// dodano biblioteki do wątku
+#include <pthread.h>
+#include <stdbool.h>
+
 #include "memory.h"
 
 
@@ -23,6 +28,11 @@ int ceglyWaga = 0;
 int* tasma;
 struct Memory *sharedMemory;
 struct Message msg;
+int msgid;
+
+//zmienne do przechowywania danych o watku
+pthread_t thread_report;
+pthread_t thread_worker_messages;
 
 
 int ceglyDodaj(int cegla){//jezeli jest miejsce na tasmie, dodaje cegle
@@ -110,9 +120,41 @@ void wyslanieCiezarowek(){
 }
 
 
+void* PetlaRaportuICiezarowek(void* arg){
+    while (running) {
+        ceglyRaport();
+        wyslanieCiezarowek();
+        sharedMemory->ceglyIlosc = ceglyIlosc;
+        sharedMemory->ceglyWaga = ceglyWaga;
+        sleep(1);
+    }
+    printf("Watek -> Stan cegielni i ciezarowki zakończył pracę.\n");
+    return NULL;
+}
 
 
+void* Watek_OdbieranieSygnalow(void* arg){
+    while (running) {
 
+        // Otrzymywanie wiadomosci
+        if (msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 0, 0) >= 0) {
+            
+            if(msg.messageType == MSG_WYSLANIE_CEGIEL){
+                //msg.messageType = MSG_WYSLANIE_CEGIEL;
+                //msg.senderType = SENDER_TYPE_WORKER;
+                //msg.senderId = workerId;
+                //msg.rozmiarCegly = 0;
+                ceglyDodaj(msg.rozmiarCegly);
+            }
+
+        } else {
+            perror("Blad otrzymywania wiadomosci");
+            break;
+        }
+    }
+    printf("Watek -> OdbieranieSygnalow zakończył pracę.\n");
+    return NULL;
+}
 
 
 
@@ -140,7 +182,7 @@ int main(int argc, char *argv[]) {
 
 
     //Tworzenie kolejki
-    int msgid = msgget(QUEUE_KEY, 0666 | IPC_CREAT);
+    msgid = msgget(QUEUE_KEY, 0666 | IPC_CREAT);
     if (msgid == -1) {
         perror("Blad, nie utworzono kolejki");
         exit(EXIT_FAILURE);
@@ -184,38 +226,31 @@ int main(int argc, char *argv[]) {
 
     printf("Program Main rozpoczyna prace\n");
 
-    while (running) {
-
-        // Otrzymywanie wiadomosci
-        if (msgrcv(msgid, &msg, sizeof(msg) - sizeof(long), 0, 0) >= 0) {
-            
-            if(msg.messageType == MSG_WYSLANIE_CEGIEL){
-                //msg.messageType = MSG_WYSLANIE_CEGIEL;
-                //msg.senderType = SENDER_TYPE_WORKER;
-                //msg.senderId = workerId;
-                //msg.rozmiarCegly = 0;
-
-                int odpowiedz = ceglyDodaj(msg.rozmiarCegly);
-                if(odpowiedz==1){
-                    ceglyRaport();
-                }
-                wyslanieCiezarowek();
-                sharedMemory->ceglyIlosc = ceglyIlosc;
-                sharedMemory->ceglyWaga = ceglyWaga;
-            }
-
-        } else {
-            perror("Blad otrzymywania wiadomosci");
-            break;
-        }
 
 
 
-
-        
-
-
+    //rozpoczynanie pracy watkow
+    if (pthread_create(&thread_report, NULL, PetlaRaportuICiezarowek, NULL) != 0) {
+        perror("Failed to create thread");
+        return 1;
     }
+    if (pthread_create(&thread_worker_messages, NULL, Watek_OdbieranieSygnalow, NULL) != 0) {
+        perror("Failed to create thread");
+        return 1;
+    }
+
+
+    //oczekiwanie na zakonczenie pracy watkow
+    if (pthread_join(thread_report, NULL) != 0) {
+        perror("Nie udalo sie zakonczyc watkow");
+        return 1;
+    }
+    if (pthread_join(thread_worker_messages, NULL) != 0) {
+        perror("Nie udalo sie zakonczyc watkow");
+        return 1;
+    }
+
+
 
     //Usuwanie polaczenia do pamieci wspoldzielonej
     if (shmdt(sharedMemory) == -1) {

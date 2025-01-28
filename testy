@@ -1,0 +1,54 @@
+echo "............................................."
+echo "TEST WORKER 1"
+./test_worker1
+echo
+echo
+
+echo "............................................."
+echo "TEST WORKER 2"
+./test_worker2
+echo
+echo
+
+echo "............................................."
+echo "TEST WORKER 3"
+./test_worker3
+echo
+echo
+
+
+echo "............................................."
+echo "TEST TRUCK 1"
+./test_truck1
+echo
+echo
+
+echo "............................................."
+echo "TEST TRUCK 2"
+./test_truck2
+echo
+echo
+
+echo "............................................."
+echo "TEST TRUCK 3"
+./test_truck3
+echo
+echo
+
+echo "............................................."
+echo "TEST TRUCK 4"
+./test_truck4
+echo
+echo
+
+echo "............................................."
+echo "TEST TRUCK 5"
+./test_truck5
+echo
+echo
+
+echo "............................................."
+echo "TEST TRUCK 6"
+./test_truck6
+echo
+echo
