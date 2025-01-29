@@ -122,10 +122,26 @@ void wyslanieCiezarowek(){
 
 void* PetlaRaportuICiezarowek(void* arg){
     while (running) {
-        ceglyRaport();
         wyslanieCiezarowek();
         sharedMemory->ceglyIlosc = ceglyIlosc;
         sharedMemory->ceglyWaga = ceglyWaga;
+        ceglyRaport();
+
+        if(ceglyWaga<=0){
+            if(sharedMemory->pid_truck1>0){
+                if (kill(sharedMemory->pid_truck1, SIGTERM) == 0) {
+                } else {
+                    perror("Nie wyslano sygnalu");
+                }
+            }
+            if(sharedMemory->pid_truck2>0){
+                if (kill(sharedMemory->pid_truck2, SIGTERM) == 0) {
+                } else {
+                    perror("Nie wyslano sygnalu");
+                }
+            }
+        }
+
         sleep(1);
     }
     printf("Watek -> Stan cegielni i ciezarowki zakończył pracę.\n");
